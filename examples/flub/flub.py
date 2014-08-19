@@ -5,7 +5,7 @@ from webobj import Server, Route, Data
 
 def main(args):
     routes = [
-        Route('/', Data('<html>Hello, Flub</html>')),
+        Route('/', Data(b'<html>Hello, Flub</html>')),
     ]
     server = Server(routes)
     server.start()
