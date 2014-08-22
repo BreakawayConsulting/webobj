@@ -2,6 +2,7 @@ import http.server
 import json
 import socketserver
 from collections import namedtuple
+import threading
 
 
 DEFAULT_ADDR = ('localhost', 8080)
@@ -11,8 +12,25 @@ def first_matching(check, lst):
     return next(filter(check, lst))
 
 
+class EventStream(threading.Condition):
+    def __init__(self, web_object):
+        self.web_object = web_object
+        lock = threading.Lock()
+        super().__init__(lock)
+
+
 class WebObject:
     web_fields = []
+
+    def __setattr__(self, name, value):
+        if name not in self.web_fields:
+            object.__setattr__(self, name, value)
+            return
+
+        self.event_stream.acquire()
+        object.__setattr__(self, name, value)
+        self.event_stream.notify_all()
+        self.event_stream.release()
 
     @property
     def web_state(self):
@@ -21,6 +39,16 @@ class WebObject:
     @property
     def web_data(self):
         return json.dumps(self.web_state).encode('utf8')
+
+    @property
+    def event_stream(self):
+        try:
+            es = self._event_steam
+        except AttributeError:
+            es = EventStream(self)
+            self._event_steam = es
+
+        return es
 
 
 class Route(namedtuple('Route', ['route', 'content'])):
@@ -62,6 +90,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
             self.wfile.write(content.web_data)
+        elif isinstance(content, EventStream):
+            self.send_response(200)
+            self.send_header("Content-type", "text/event-stream")
+            self.end_headers()
+            content.acquire()
+            while True:
+                data = 'data: {}\n\n'.format(content.web_object.web_state)
+                try:
+                    self.wfile.write(data.encode('utf-8'))
+                    self.wfile.flush()
+                except:
+                    content.release()
+                    break
+                content.wait()
 
 
 class Server:

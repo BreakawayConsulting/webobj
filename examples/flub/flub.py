@@ -24,6 +24,7 @@ def main(args):
     routes = [
         Route('/', Data(b'<html>Hello, Flub</html>')),
         Route('/flub', flub),
+        Route('/flub+events', flub.event_stream),
     ]
     server = Server(routes)
     server.start()
