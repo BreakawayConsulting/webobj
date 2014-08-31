@@ -3,6 +3,7 @@ import json
 import socketserver
 from collections import namedtuple
 import threading
+import inspect
 
 
 DEFAULT_ADDR = ('localhost', 8080)
@@ -115,6 +116,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     content.release()
                     break
                 content.wait()
+
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        data = self.rfile.read(content_length)
+
+        try:
+            route = first_matching(lambda x: x.matches(self), self.routes)
+        except StopIteration:
+            self.do_error(404)
+            return
+
+        try:
+            post_args = json.loads(data.decode())
+        except ValueError:
+            self.do_error(400)
+            return
+
+        content = route.content
+
+        if inspect.ismethod(content):
+            result = content(**post_args)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps({'result': result}).encode('utf=8'))
 
 
 class Server:
