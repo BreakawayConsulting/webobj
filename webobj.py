@@ -106,7 +106,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             content.acquire()
             while True:
-                data = 'data: {}\n\n'.format(content.web_object.web_state)
+                json_data = json.dumps(content.web_object.web_state)
+                data = 'data: {}\n\n'.format(json_data)
                 try:
                     self.wfile.write(data.encode('utf-8'))
                     self.wfile.flush()
