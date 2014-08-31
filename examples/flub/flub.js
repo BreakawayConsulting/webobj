@@ -14,11 +14,15 @@ var Flub = React.createClass({
     },
 
     flubStart: function(e) {
-        console.log("flubStart");
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/flub/start", false);
+        xhr.send('{}');
     },
 
     flubStop: function(e) {
-        console.log("flubStop");
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/flub/stop", false);
+        xhr.send('{}');
     },
 
     render: function() {
