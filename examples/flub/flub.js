@@ -13,8 +13,20 @@ var Flub = React.createClass({
         this.setState(flubState);
     },
 
+    flubStart: function(e) {
+        console.log("flubStart");
+    },
+
+    flubStop: function(e) {
+        console.log("flubStop");
+    },
+
     render: function() {
-        return React.DOM.p({}, 'Hello, Flub! Current count: ' + this.state.bar);
+        return React.DOM.div({},
+                             React.DOM.p({}, 'Hello, Flub! Current count: ' + this.state.bar),
+                             React.DOM.button({'onClick': this.flubStop}, 'Stop!'),
+                             React.DOM.button({'onClick': this.flubStart}, 'Start!')
+                            );
     }
 });
 
