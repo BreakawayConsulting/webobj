@@ -30,6 +30,8 @@ def main(args):
 
     routes = [
         Route('/', File(rel_path('index.html'))),
+        Route('/flub.js', File(rel_path('flub.js'))),
+        Route('/react.js', File(rel_path('react.js'))),
         Route('/flub', flub),
         Route('/flub+events', flub.event_stream),
     ]
