@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 
+import os
 import time
 import threading
-from webobj import Server, Route, Data, WebObject
+from webobj import Server, Route, Data, WebObject, File
+
+BASE_DIR = os.path.dirname(__file__)
+
+def rel_path(*parts):
+    return os.path.join(BASE_DIR, *parts)
+
 
 class Flub(WebObject):
     web_fields = ['bar']
@@ -22,7 +29,7 @@ def main(args):
     flub_thread.start()
 
     routes = [
-        Route('/', Data(b'<html>Hello, Flub</html>')),
+        Route('/', File(rel_path('index.html'))),
         Route('/flub', flub),
         Route('/flub+events', flub.event_stream),
     ]

@@ -61,6 +61,16 @@ class Data:
         self.data = data
 
 
+class File:
+    def __init__(self, filename):
+        self.filename = filename
+
+    @property
+    def data(self):
+        with open(self.filename, 'rb') as f:
+            return f.read()
+
+
 class ThreadedServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     pass
 
@@ -82,7 +92,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         content = route.content
 
-        if isinstance(content, Data):
+        if isinstance(content, (Data, File)):
             self.send_response(200)
             self.end_headers()
             self.wfile.write(content.data)
