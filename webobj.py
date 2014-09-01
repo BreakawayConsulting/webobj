@@ -84,6 +84,38 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write('<html>Error: {}</html>'.format(status).encode())
 
+    def handle_one_request(self):
+        """Handle a single HTTP request.
+
+        """
+        try:
+            self.raw_requestline = self.rfile.readline(65537)
+            if len(self.raw_requestline) > 65536:
+                self.requestline = ''
+                self.request_version = ''
+                self.command = ''
+                self.send_error(414)
+                return
+            if not self.raw_requestline:
+                self.close_connection = 1
+                return
+            if not self.parse_request():
+                # An error code has been sent, just exit
+                return
+            mname = 'do_' + self.command
+            if not hasattr(self, mname):
+                self.send_error(501, "Unsupported method (%r)" % self.command)
+                return
+            method = getattr(self, mname)
+            method()
+            # actually send the response if not already done.
+            self.wfile.flush()
+        except socket.timeout as e:
+            # a read or a write timed out.  Discard this connection
+            self.log_error("Request timed out: %r", e)
+            self.close_connection = 1
+            return
+
     def do_GET(self):
         try:
             route = first_matching(lambda x: x.matches(self), self.routes)
