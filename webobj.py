@@ -5,6 +5,7 @@ from collections import namedtuple
 import threading
 import inspect
 import sys
+import jsx
 import socket
 
 
@@ -89,6 +90,18 @@ class File:
         with open(self.filename, 'rb') as f:
             return f.read()
 
+class Jsx:
+    def __init__(self, jsx_filename):
+        self.jsx_filename = jsx_filename
+        self.content_type = 'application/javascript'
+
+    @property
+    def data(self):
+        return jsx.transform(self.jsx_filename).encode('utf8')
+
+    def __repr__(self):
+        return "<{} {}>".format(self.__class__.__name__, self.jsx_filename)
+
 
 class ThreadedServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     pass
@@ -151,7 +164,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         content = route.content
 
-        if isinstance(content, (Data, File)):
+        if isinstance(content, (Data, File, Jsx)):
             self.send_response(200)
             if content.content_type is not None:
                 self.send_header("Content-type", content.content_type)
