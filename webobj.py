@@ -4,7 +4,10 @@ import socketserver
 from collections import namedtuple
 import threading
 import inspect
+import sys
 
+
+LOG_PREFIX = '\U0001f310 '
 
 DEFAULT_ADDR = ('localhost', 8080)
 
@@ -83,6 +86,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(status)
         self.end_headers()
         self.wfile.write('<html>Error: {}</html>'.format(status).encode())
+
+    def log_message(self, fmt, *args):
+        sys.stderr.write(LOG_PREFIX + "{} - - [{}] {}\n".format(self.address_string(), self.log_date_time_string(), fmt % args))
 
     def handle_one_request(self):
         """Handle a single HTTP request.
