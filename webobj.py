@@ -128,7 +128,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_error(501, "Unsupported method (%r)" % self.command)
                 return
             method = getattr(self, mname)
-            method()
+            try:
+                method()
+            except Exception as e:
+                self.log_error("Error occured during request: {} {}: {}".format(self.command, self.path, e))
+                self.close_connection = 1
+                return
             # actually send the response if not already done.
             self.wfile.flush()
         except socket.timeout as e:
