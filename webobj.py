@@ -5,6 +5,7 @@ from collections import namedtuple
 import threading
 import inspect
 import sys
+import socket
 
 
 LOG_PREFIX = '\U0001f310 '
