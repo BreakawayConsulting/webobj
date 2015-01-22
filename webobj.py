@@ -62,8 +62,9 @@ class Route(namedtuple('Route', ['route', 'content'])):
 
 
 class Data:
-    def __init__(self, data):
+    def __init__(self, data, content_type=None):
         self.data = data
+        self.content_type = content_type
 
 
 class File:
