@@ -148,6 +148,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         if isinstance(content, (Data, File)):
             self.send_response(200)
+            if content.content_type is not None:
+                self.send_header("Content-type", content.content_type)
             self.end_headers()
             self.wfile.write(content.data)
         elif isinstance(content, WebObject):
