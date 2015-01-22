@@ -13,6 +13,9 @@ LOG_PREFIX = '\U0001f310 '
 DEFAULT_ADDR = ('localhost', 8080)
 
 
+auto = object()
+
+
 def first_matching(check, lst):
     return next(filter(check, lst))
 
@@ -68,8 +71,18 @@ class Data:
 
 
 class File:
-    def __init__(self, filename):
+    def __init__(self, filename, content_type=auto):
         self.filename = filename
+        if content_type is auto:
+            # guess from filename
+            if filename.endswith('.js'):
+                self.content_type = 'application/javascript'
+            elif filename.endswith('.html'):
+                self.content_type = 'text/html'
+            else:
+                self.content_type = None
+        else:
+            self.content_type = content_type
 
     @property
     def data(self):
