@@ -176,6 +176,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     content.release()
                     break
                 content.wait()
+        else:
+            raise Exception("unhandled content: {}".format(content))
 
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
