@@ -451,7 +451,6 @@ for command in ["nodejs", "node"]:
         encoding='UTF-8',
         runner_source=r"""(function(program, execJS) { execJS(program) })(function() { #{source}
 }, function(program) {
-  var output;
   var print = function(string) {
     process.stdout.write('' + string + '\n');
   };
