@@ -83,6 +83,9 @@ class RuntimeUnavailable(RuntimeError):
     pass
 
 
+callback = object()
+
+
 def register(name, runtime):
     '''Register a JavaScript runtime.'''
     _runtimes[name] = runtime
@@ -205,12 +208,13 @@ def _which(command):
 
 
 class ExternalRuntime:
-    def __init__(self, name, command, runner_source, encoding='utf8'):
+    def __init__(self, name, command, runner_source, runner_source_async=None, encoding='utf8'):
         self._name = name
         if isinstance(command, str):
             command = [command]
         self._command = command
         self._runner_source = runner_source
+        self._runner_source_async = runner_source_async
         self._encoding = encoding
         self.env = None
 
@@ -234,6 +238,11 @@ class ExternalRuntime:
             raise RuntimeUnavailable()
         return self.Context(self).eval(source)
 
+    def async_eval(self, source):
+        if not self.is_available():
+            raise RuntimeUnavailable()
+        return self.Context(self).async_eval(source)
+
     def compile(self, source):
         if not self.is_available():
             raise RuntimeUnavailable()
@@ -244,6 +253,9 @@ class ExternalRuntime:
 
     def runner_source(self):
         return self._runner_source
+
+    def runner_source_async(self):
+        return self._runner_source_async
 
     def _binary(self):
         """protected"""
@@ -282,6 +294,15 @@ class ExternalRuntime:
             code = 'return eval({data})'.format(data=data)
             return self.exec_(code)
 
+        def async_eval(self, source):
+            if not source.strip():
+                data = "''"
+            else:
+                data = "'('+" + json.dumps(source, ensure_ascii=True) + "+')'"
+
+            code = 'return eval({data})'.format(data=data)
+            return self.exec_async(code)
+
         def exec_(self, source):
             if self._source:
                 source = self._source + '\n' + source
@@ -299,9 +320,30 @@ class ExternalRuntime:
             output = output.replace("\r\n", "\n").replace("\r", "\n")
             return self._extract_result(output.split("\n")[-2])
 
+        def exec_async(self, source):
+            if self._source:
+                source = self._source + '\n' + source
+
+            (fd, filename) = tempfile.mkstemp(prefix='execjs', suffix='.js')
+            os.close(fd)
+            try:
+                with io.open(filename, "w+", encoding=self._runtime._encoding) as fp:
+                    fp.write(self._compile_async(source))
+                output = self._runtime._execfile(filename)
+            finally:
+                os.remove(filename)
+
+            output = output.decode(self._runtime._encoding)
+            output = output.replace("\r\n", "\n").replace("\r", "\n")
+            return self._extract_result(output.split("\n")[-2])
+
         def call(self, identifier, *args):
             args = json.dumps(args)
             return self.eval("{identifier}.apply(this, {args})".format(identifier=identifier, args=args))
+
+        def call_async(self, identifier, *args, this='this'):
+            json_args = '[' + ', '.join(['callback' if arg is callback else json.dumps(arg) for arg in args]) + ']'
+            return self.async_eval("{identifier}.apply({this}, {args})".format(identifier=identifier, this=this, args=json_args))
 
         def _compile(self, source):
             """protected"""
@@ -323,6 +365,25 @@ class ExternalRuntime:
 
             return runner_source
 
+        def _compile_async(self, source):
+            """protected"""
+            runner_source = self._runtime.runner_source_async()
+
+            replacements = {
+                '#{source}': lambda: source,
+                '#{encoded_source}': lambda: json.dumps(
+                    "(FUNCTION(){ " +
+                    encode_unicode_codepoints(source) +
+                    " })()"
+                ),
+                '#{json2_source}': _json2_source,
+            }
+
+            pattern = "|".join(re.escape(k) for k in replacements)
+
+            runner_source = re.sub(pattern, lambda m: replacements[m.group(0)](), runner_source)
+            return runner_source
+
         def _extract_result(self, output_last_line):
             """protected"""
             if not output_last_line:
@@ -335,10 +396,13 @@ class ExternalRuntime:
 
             if status == "ok":
                 return value
-            elif value.startswith('SyntaxError:'):
-                raise RuntimeError(value)
+            elif status == "err":
+                if isinstance(value, str) and value.startswith('SyntaxError:'):
+                    raise RuntimeError(value)
+                else:
+                    raise ProgramError(value)
             else:
-                raise ProgramError(value)
+                raise Exception("got a bad status: {}".format(status))
 
 
 def encode_unicode_codepoints(str):
@@ -466,6 +530,39 @@ for command in ["nodejs", "node"]:
         print('["err"]');
       }
     }
+  } catch (err) {
+    print(JSON.stringify(['err', '' + err]));
+  }
+});""",
+        runner_source_async=r"""(function(program, execJS) { execJS(program) })(function(callback) { #{source}
+}, function(program) {
+  var print = function(string) {
+    process.stdout.write('' + string + '\n');
+  };
+
+  function callback(err, result) {
+    if (err === null) {
+      if (typeof result == 'undefined' && result !== null) {
+        print('["ok"]');
+      } else {
+        try {
+          print(JSON.stringify(['ok', result]));
+        } catch (err) {
+          print('["err"]');
+        }
+      }
+    } else {
+      try {
+        print(JSON.stringify(['err', err]));
+      } catch (err) {
+        print('["err"]');
+      }
+    }
+  }
+
+  print('')
+  try {
+    result = program(callback);
   } catch (err) {
     print(JSON.stringify(['err', '' + err]));
   }
