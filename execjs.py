@@ -212,6 +212,7 @@ class ExternalRuntime:
         self._command = command
         self._runner_source = runner_source
         self._encoding = encoding
+        self.env = None
 
     def __str__(self):
         return "{class_name}({runtime_name})".format(
@@ -256,7 +257,7 @@ class ExternalRuntime:
 
         p = None
         try:
-            p = Popen(cmd, stdout=PIPE, stderr=STDOUT)
+            p = Popen(cmd, stdout=PIPE, stderr=STDOUT, env=self.env)
             stdoutdata, stderrdata = p.communicate()
             ret = p.wait()
         finally:
