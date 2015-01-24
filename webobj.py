@@ -7,7 +7,7 @@ import inspect
 import sys
 import jsx
 import socket
-
+import less
 
 LOG_PREFIX = '\U0001f310 '
 
@@ -103,6 +103,19 @@ class Jsx:
         return "<{} {}>".format(self.__class__.__name__, self.jsx_filename)
 
 
+class Less:
+    def __init__(self, less_filename):
+        self.less_filename = less_filename
+        self.content_type = 'text/css'
+
+    @property
+    def data(self):
+        return less.render(self.less_filename)['css'].encode('utf8')
+
+    def __repr__(self):
+        return "<{} {}>".format(self.__class__.__name__, self.less_filename)
+
+
 class ThreadedServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     pass
 
@@ -164,7 +177,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         content = route.content
 
-        if isinstance(content, (Data, File, Jsx)):
+        if isinstance(content, (Data, File, Jsx, Less)):
             self.send_response(200)
             if content.content_type is not None:
                 self.send_header("Content-type", content.content_type)
