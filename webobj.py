@@ -78,8 +78,14 @@ class File:
             # guess from filename
             if filename.endswith('.js'):
                 self.content_type = 'application/javascript'
+            elif filename.endswith('.css'):
+                self.content_type = 'text/css'
+            elif filename.endswith('.png'):
+                self.content_type = 'image/png'
             elif filename.endswith('.html'):
                 self.content_type = 'text/html'
+            elif filename.endswith('.woff'):
+                self.content_type = 'application/x-font-woff'
             else:
                 self.content_type = None
         else:
