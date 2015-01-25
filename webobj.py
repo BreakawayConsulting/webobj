@@ -16,6 +16,17 @@ DEFAULT_ADDR = ('localhost', 8080)
 
 auto = object()
 
+class Created(Exception):
+    def __init__(self, resource_id):
+        super().__init__()
+        self.resource_id = resource_id
+
+
+def webmethod(fn):
+    fn.is_webmethod = True
+    return fn
+
+
 
 def first_matching(check, lst):
     return next(filter(check, lst))
@@ -26,6 +37,11 @@ class EventStream(threading.Condition):
         self.web_object = web_object
         lock = threading.Lock()
         super().__init__(lock)
+
+
+class NewWebObject:
+    def check_match(self, path):
+        return None
 
 
 class WebObject:
@@ -62,7 +78,14 @@ class WebObject:
 
 class Route(namedtuple('Route', ['route', 'content'])):
     def matches(self, request):
-        return request.path == self.route
+        if request.path == self.route:
+            return self.content
+        if request.path.startswith(self.route):
+            if isinstance(self.content, NewWebObject):
+                content = self.content.check_match(request.path[len(self.route):])
+                if content is not None:
+                    return content
+        return None
 
 
 class Data:
@@ -176,12 +199,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         try:
-            route = first_matching(lambda x: x.matches(self), self.routes)
+            content = first_matching(lambda x: x is not None, (x.matches(self) for x in self.routes))
         except StopIteration:
             self.do_error(404)
             return
-
-        content = route.content
 
         if isinstance(content, (Data, File, Jsx, Less)):
             self.send_response(200)
@@ -208,6 +229,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     content.release()
                     break
                 content.wait()
+        elif isinstance(content, NewWebObject):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(content.web_data)
         else:
             raise Exception("unhandled content: {}".format(content))
 
@@ -216,7 +241,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         data = self.rfile.read(content_length)
 
         try:
-            route = first_matching(lambda x: x.matches(self), self.routes)
+            content = first_matching(lambda x: x is not None, (x.matches(self) for x in self.routes))
         except StopIteration:
             self.do_error(404)
             return
@@ -227,13 +252,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.do_error(400)
             return
 
-        content = route.content
-
         if inspect.ismethod(content):
             result = content(**post_args)
             self.send_response(200)
             self.end_headers()
             self.wfile.write(json.dumps({'result': result}).encode('utf=8'))
+        elif isinstance(content, NewWebObject):
+            # FIXME: handle case when no actions specified
+            action = post_args['action']
+            args = post_args['args']
+            action_method = getattr(content, action)
+            try:
+                action_method(**args)
+            except Created as e:
+                self.send_response(201)
+                loc_uri = self.path + "/" + e.resource_id
+                self.send_header("Location", loc_uri)
+                self.end_headers()
+                return
+
+            raise Exception("unhandled content: {}".format(content))
+        else:
+            raise Exception("unhandled content: {}".format(content))
 
 
 class Server:
