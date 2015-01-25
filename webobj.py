@@ -8,8 +8,14 @@ import sys
 import jsx
 import socket
 import less
+import time
 
 LOG_PREFIX = '\U0001f310 '
+PILE_OF_POO = '\U0001f4a9'
+FIRE = '\U0001f525'
+RED = '\x1b[31m'
+GREEN = '\x1b[32m'
+NORMAL = '\x1b[39m'
 
 DEFAULT_ADDR = ('localhost', 8080)
 
@@ -152,13 +158,27 @@ class ThreadedServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 class Handler(http.server.BaseHTTPRequestHandler):
     routes = property(lambda self: self.server.routes)
 
+    def time_string(self):
+        """Return the current time formatted for logging."""
+        time_with_us = time.time()
+        us = (time_with_us % 1.0) * 1000000
+        _, _, _, hh, mm, ss, _, _, _ = time.localtime(time_with_us)
+        return "%02d:%02d:%02d.%06d" % (hh, mm, ss, us)
+
     def do_error(self, status):
         self.send_response(status)
         self.end_headers()
         self.wfile.write('<html>Error: {}</html>'.format(status).encode())
 
     def log_message(self, fmt, *args):
-        sys.stderr.write(LOG_PREFIX + "{} - - [{}] {}\n".format(self.address_string(), self.log_date_time_string(), fmt % args))
+        sys.stderr.write(LOG_PREFIX + "[{}] {}\n".format(self.time_string(), fmt % args))
+
+    def log_request(self, code=999):
+        if code < 300:
+            color = GREEN
+        else:
+            color = RED
+        self.log_message('{}%3d{} %s %s'.format(color, NORMAL), code, self.command, self.path)
 
     def handle_one_request(self):
         """Handle a single HTTP request.
@@ -186,7 +206,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             try:
                 method()
             except Exception as e:
-                self.log_error("Error occured during request: {} {}: {}".format(self.command, self.path, e))
+                self.log_error("{}999{} {} {}\n                    {}   {}{}{}".format(RED, NORMAL, self.command, self.path, FIRE, RED, e, NORMAL))
                 self.close_connection = 1
                 return
             # actually send the response if not already done.
@@ -263,7 +283,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             args = post_args['args']
             action_method = getattr(content, action)
             try:
-                action_method(**args)
+                result = action_method(**args)
             except Created as e:
                 self.send_response(201)
                 loc_uri = self.path + "/" + e.resource_id
@@ -271,7 +291,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.end_headers()
                 return
 
-            raise Exception("unhandled content: {}".format(content))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps(result).encode('utf8'))
+            return
+
         else:
             raise Exception("unhandled content: {}".format(content))
 
