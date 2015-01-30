@@ -7,7 +7,7 @@ import sys
 def main():
     sys.path = [os.getcwd()] + sys.path
     module = __import__(sys.argv[1])
-    server = Server(module.routes)
+    server = Server(module.routes, module.authenticator)
     server.start()
 
 script()

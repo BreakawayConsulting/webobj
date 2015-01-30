@@ -266,6 +266,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.do_error(404)
             return
 
+        # FIXME: Lift to be done on all accesses, not just post.
+        self.server.authenticator.check(self.headers.get('Authorization'))
+
         try:
             post_args = json.loads(data.decode())
         except ValueError:
@@ -301,11 +304,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 class Server:
-    def __init__(self, routes, addr=DEFAULT_ADDR):
+    def __init__(self, routes, authenticator=None, addr=DEFAULT_ADDR):
         self.routes = routes
+        self.authenticator = authenticator
         self.addr = addr
 
     def start(self):
         self.server = ThreadedServer(self.addr, Handler)
         self.server.routes = self.routes
+        self.server.authenticator = self.authenticator
         self.server.serve_forever()
