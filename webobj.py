@@ -10,6 +10,9 @@ import socket
 import less
 import time
 
+# Arbitrarily use 2KiB as max request line size.
+MAX_REQUEST_LINE = 2048
+
 LOG_PREFIX = '\U0001f310 '
 PILE_OF_POO = '\U0001f4a9'
 FIRE = '\U0001f525'
@@ -185,16 +188,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         """
         try:
-            self.raw_requestline = self.rfile.readline(65537)
-            if len(self.raw_requestline) > 65536:
+            self.raw_requestline = self.rfile.readline(MAX_REQUEST_LINE + 1)
+
+            if len(self.raw_requestline) > MAX_REQUEST_LINE:
+                # Exceed max request line size. Return 414 error.
+                self.close_connection = 1
                 self.requestline = ''
                 self.request_version = ''
                 self.command = ''
                 self.send_error(414)
                 return
-            if not self.raw_requestline:
+
+            if len(self.raw_requestline) == 0:
+                # No data read, just close the connection
                 self.close_connection = 1
                 return
+
             if not self.parse_request():
                 # An error code has been sent, just exit
                 return
@@ -202,11 +211,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             try:
                 self.do_request()
             except Exception as e:
-                self.log_error("{}999{} {} {}\n                    {}   {}{}{}".format(RED, NORMAL, self.command, self.path, FIRE, RED, e, NORMAL))
+                msg = "{}999{} {} {}\n                    {}   {}{}{}"
+                self.log_error(msg.format(RED, NORMAL, self.command, self.path, FIRE, RED, e, NORMAL))
                 self.close_connection = 1
                 return
             # actually send the response if not already done.
             self.wfile.flush()
+
         except socket.timeout as e:
             # a read or a write timed out.  Discard this connection
             self.log_error("Request timed out: %r", e)
@@ -214,17 +225,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
     def do_request(self):
+        if self.command == 'POST':
+            content_length = int(self.headers['Content-Length'])
+            data = self.rfile.read(content_length)
+
         try:
             content = first_matching(lambda x: x is not None, (x.matches(self) for x in self.routes))
         except StopIteration:
             self.do_error(404)
             return
 
-        self.server.authenticator.check(self.headers.get('Authorization'))
+        authorization_header = self.headers.get('Authorization')
+        account = self.server.authenticator.get_account(authorization_header)
 
         if self.command == 'POST':
-            content_length = int(self.headers['Content-Length'])
-            data = self.rfile.read(content_length)
             try:
                 post_args = json.loads(data.decode())
             except ValueError:
@@ -244,8 +258,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif isinstance(content, NewWebObject):
             if self.command == 'GET':
                 self.send_response(200)
+                self.send_header("Content-type", 'application/json')
                 self.end_headers()
                 self.wfile.write(content.web_data)
+
             elif self.command == 'POST':
                 # FIXME: handle case when no actions specified
                 action = post_args['action']
@@ -261,7 +277,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return
 
                 self.send_response(200)
+                self.send_header("Content-type", 'application/json')
                 self.end_headers()
+
                 self.wfile.write(json.dumps(result).encode('utf8'))
                 return
             else:
