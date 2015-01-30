@@ -9,6 +9,7 @@ import jsx
 import socket
 import less
 import time
+import traceback
 
 # Arbitrarily use 2KiB as max request line size.
 MAX_REQUEST_LINE = 2048
@@ -214,6 +215,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 msg = "{}999{} {} {}\n                    {}   {}{}{}"
                 self.log_error(msg.format(RED, NORMAL, self.command, self.path, FIRE, RED, e, NORMAL))
                 self.close_connection = 1
+                traceback.print_exc()
                 return
             # actually send the response if not already done.
             self.wfile.flush()
