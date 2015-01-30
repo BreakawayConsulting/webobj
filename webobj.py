@@ -41,11 +41,11 @@ def first_matching(check, lst):
     return next(filter(check, lst))
 
 
-class EventStream(threading.Condition):
-    def __init__(self, web_object):
-        self.web_object = web_object
-        lock = threading.Lock()
-        super().__init__(lock)
+# class EventStream(threading.Condition):
+#     def __init__(self, web_object):
+#         self.web_object = web_object
+#         lock = threading.Lock()
+#         super().__init__(lock)
 
 
 class NewWebObject:
@@ -53,36 +53,36 @@ class NewWebObject:
         return None
 
 
-class WebObject:
-    web_fields = []
+# class WebObject:
+#     web_fields = []
 
-    def __setattr__(self, name, value):
-        if name not in self.web_fields:
-            object.__setattr__(self, name, value)
-            return
+#     def __setattr__(self, name, value):
+#         if name not in self.web_fields:
+#             object.__setattr__(self, name, value)
+#             return
 
-        self.event_stream.acquire()
-        object.__setattr__(self, name, value)
-        self.event_stream.notify_all()
-        self.event_stream.release()
+#         self.event_stream.acquire()
+#         object.__setattr__(self, name, value)
+#         self.event_stream.notify_all()
+#         self.event_stream.release()
 
-    @property
-    def web_state(self):
-        return {fld: getattr(self, fld) for fld in self.web_fields}
+#     @property
+#     def web_state(self):
+#         return {fld: getattr(self, fld) for fld in self.web_fields}
 
-    @property
-    def web_data(self):
-        return json.dumps(self.web_state).encode('utf8')
+#     @property
+#     def web_data(self):
+#         return json.dumps(self.web_state).encode('utf8')
 
-    @property
-    def event_stream(self):
-        try:
-            es = self._event_steam
-        except AttributeError:
-            es = EventStream(self)
-            self._event_steam = es
+#     @property
+#     def event_stream(self):
+#         try:
+#             es = self._event_steam
+#         except AttributeError:
+#             es = EventStream(self)
+#             self._event_steam = es
 
-        return es
+#         return es
 
 
 class Route(namedtuple('Route', ['route', 'content'])):
