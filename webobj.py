@@ -198,13 +198,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not self.parse_request():
                 # An error code has been sent, just exit
                 return
-            mname = 'do_' + self.command
-            if not hasattr(self, mname):
-                self.send_error(501, "Unsupported method (%r)" % self.command)
-                return
-            method = getattr(self, mname)
+
             try:
-                method()
+                self.do_request()
             except Exception as e:
                 self.log_error("{}999{} {} {}\n                    {}   {}{}{}".format(RED, NORMAL, self.command, self.path, FIRE, RED, e, NORMAL))
                 self.close_connection = 1
@@ -217,90 +213,92 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.close_connection = 1
             return
 
-    def do_GET(self):
+    def do_request(self):
         try:
             content = first_matching(lambda x: x is not None, (x.matches(self) for x in self.routes))
         except StopIteration:
             self.do_error(404)
             return
 
-        if isinstance(content, (Data, File, Jsx, Less)):
-            self.send_response(200)
-            if content.content_type is not None:
-                self.send_header("Content-type", content.content_type)
-            self.end_headers()
-            self.wfile.write(content.data)
-        elif isinstance(content, WebObject):
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(content.web_data)
-        elif isinstance(content, EventStream):
-            self.send_response(200)
-            self.send_header("Content-type", "text/event-stream")
-            self.end_headers()
-            content.acquire()
-            while True:
-                json_data = json.dumps(content.web_object.web_state)
-                data = 'data: {}\n\n'.format(json_data)
-                try:
-                    self.wfile.write(data.encode('utf-8'))
-                    self.wfile.flush()
-                except:
-                    content.release()
-                    break
-                content.wait()
-        elif isinstance(content, NewWebObject):
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(content.web_data)
-        else:
-            raise Exception("unhandled content: {}".format(content))
-
-    def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        data = self.rfile.read(content_length)
-
-        try:
-            content = first_matching(lambda x: x is not None, (x.matches(self) for x in self.routes))
-        except StopIteration:
-            self.do_error(404)
-            return
-
-        # FIXME: Lift to be done on all accesses, not just post.
         self.server.authenticator.check(self.headers.get('Authorization'))
 
-        try:
-            post_args = json.loads(data.decode())
-        except ValueError:
-            self.do_error(400)
-            return
-
-        if inspect.ismethod(content):
-            result = content(**post_args)
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(json.dumps({'result': result}).encode('utf=8'))
-        elif isinstance(content, NewWebObject):
-            # FIXME: handle case when no actions specified
-            action = post_args['action']
-            args = post_args['args']
-            action_method = getattr(content, action)
+        if self.command == 'POST':
+            content_length = int(self.headers['Content-Length'])
+            data = self.rfile.read(content_length)
             try:
-                result = action_method(**args)
-            except Created as e:
-                self.send_response(201)
-                loc_uri = self.path + "/" + e.resource_id
-                self.send_header("Location", loc_uri)
-                self.end_headers()
+                post_args = json.loads(data.decode())
+            except ValueError:
+                self.do_error(400)
                 return
 
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(json.dumps(result).encode('utf8'))
-            return
+        if isinstance(content, (Data, File, Jsx, Less)):
+            if self.command == 'GET':
+                self.send_response(200)
+                if content.content_type is not None:
+                    self.send_header("Content-type", content.content_type)
+                self.end_headers()
+                self.wfile.write(content.data)
+            else:
+                self.send_error(501, "Unsupported method (%r)" % self.command)
+
+        elif isinstance(content, NewWebObject):
+            if self.command == 'GET':
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(content.web_data)
+            elif self.command == 'POST':
+                # FIXME: handle case when no actions specified
+                action = post_args['action']
+                args = post_args['args']
+                action_method = getattr(content, action)
+                try:
+                    result = action_method(**args)
+                except Created as e:
+                    self.send_response(201)
+                    loc_uri = self.path + "/" + e.resource_id
+                    self.send_header("Location", loc_uri)
+                    self.end_headers()
+                    return
+
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps(result).encode('utf8'))
+                return
+            else:
+                self.send_error(501, "Unsupported method (%r)" % self.command)
 
         else:
             raise Exception("unhandled content: {}".format(content))
+
+
+    # Temp removal of support for WebObject and EventStream
+    # def do_GET(self):
+    #     elif isinstance(content, WebObject):
+    #         self.send_response(200)
+    #         self.end_headers()
+    #         self.wfile.write(content.web_data)
+    #     elif isinstance(content, EventStream):
+    #         self.send_response(200)
+    #         self.send_header("Content-type", "text/event-stream")
+    #         self.end_headers()
+    #         content.acquire()
+    #         while True:
+    #             json_data = json.dumps(content.web_object.web_state)
+    #             data = 'data: {}\n\n'.format(json_data)
+    #             try:
+    #                 self.wfile.write(data.encode('utf-8'))
+    #                 self.wfile.flush()
+    #             except:
+    #                 content.release()
+    #                 break
+    #             content.wait()
+
+    # Temp removal of support for posting to bare methods
+    # if inspect.ismethod(content):
+    #     result = content(**post_args)
+    #     self.send_response(200)
+    #     self.end_headers()
+    #     self.wfile.write(json.dumps({'result': result}).encode('utf=8'))
 
 
 class Server:
