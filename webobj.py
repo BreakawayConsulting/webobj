@@ -10,6 +10,24 @@ import socket
 import less
 import time
 import traceback
+import urllib.parse
+import os.path
+
+
+def parse_path(path):
+    unquoted = urllib.parse.unquote(path)
+    parts = [x for x in unquoted.split('/') if x != '']
+    new = []
+    for p in parts:
+        if (p == '..'):
+            if len(new):
+                new.pop()
+            else:
+                raise Exception()
+        else:
+            new.append(p)
+    return '/' + '/'.join(new)
+
 
 # Arbitrarily use 2KiB as max request line size.
 MAX_REQUEST_LINE = 2048
@@ -87,12 +105,12 @@ class NewWebObject:
 
 
 class Route(namedtuple('Route', ['route', 'content'])):
-    def matches(self, request):
-        if request.path == self.route:
+    def matches(self, path):
+        if path == self.route:
             return self.content
-        if request.path.startswith(self.route):
-            if isinstance(self.content, NewWebObject):
-                content = self.content.check_match(request.path[len(self.route):])
+        if path.startswith(self.route):
+            if hasattr(self.content, 'check_match'):
+                content = self.content.check_match(path[len(self.route):])
                 if content is not None:
                     return content
         return None
@@ -128,6 +146,24 @@ class File:
     def data(self):
         with open(self.filename, 'rb') as f:
             return f.read()
+
+
+class Dir:
+    def __init__(self, dir_path):
+        self.dir_path = dir_path
+
+    def __repr__(self):
+        return "<{} {}>".format(self.__class__.__name__, self.dir_path)
+
+    def check_match(self, path):
+        assert not path.startswith('/')
+        assert '../' not in path
+        full_path = os.path.join(self.dir_path, path)
+        if os.path.exists(full_path):
+            return File(full_path)
+        else:
+            return None
+
 
 class Jsx:
     def __init__(self, jsx_filename):
@@ -231,8 +267,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             content_length = int(self.headers['Content-Length'])
             data = self.rfile.read(content_length)
 
+        parsed_path = parse_path(self.path)
         try:
-            content = first_matching(lambda x: x is not None, (x.matches(self) for x in self.routes))
+            content = first_matching(lambda x: x is not None, (x.matches(parsed_path) for x in self.routes))
         except StopIteration:
             self.do_error(404)
             return
