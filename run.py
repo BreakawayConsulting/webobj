@@ -11,11 +11,6 @@ from copy import copy
 # Lightning bolt
 PREFIX = "\u26A1 "
 
-BASE_DIR = os.path.dirname(__file__)
-
-def rel_path(*parts):
-    return os.path.join(BASE_DIR, *parts)
-
 running = True
 last_ctrl_c = 0
 child_pid = None
@@ -55,7 +50,7 @@ def load():
     pid = os.fork()
     if pid == 0:
         env = copy(os.environ)
-        os.execv(sys.executable, ['python3', rel_path('main.py')] + sys.argv[1:])
+        os.execv(sys.executable, ['python3', '-m', 'main'] + sys.argv[1:])
         print(PREFIX + "exec failed.")
         sys.exit()
     else:
