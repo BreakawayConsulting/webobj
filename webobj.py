@@ -61,17 +61,17 @@ def first_matching(check, lst):
 
 
 class NewWebObject:
-    def check_match(self, path):
+    def check_match(self, path, method):
         return None
 
 
 class Route(namedtuple('Route', ['route', 'content'])):
-    def matches(self, path):
+    def matches(self, path, method):
         if path == self.route:
             return self.content
         if path.startswith(self.route):
             if hasattr(self.content, 'check_match'):
-                content = self.content.check_match(path[len(self.route):])
+                content = self.content.check_match(path[len(self.route):], method)
                 if content is not None:
                     return content
         return None
@@ -234,13 +234,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
     def do_request(self):
-        if self.command == 'POST':
+        if self.command in ('POST', 'PUT'):
             content_length = int(self.headers['Content-Length'])
             data = self.rfile.read(content_length)
 
         parsed_path = parse_path(self.path)
         try:
-            content = first_matching(lambda x: x is not None, (x.matches(parsed_path) for x in self.routes))
+            content = first_matching(lambda x: x is not None, (x.matches(parsed_path, self.command) for x in self.routes))
         except StopIteration:
             self.do_error(404)
             return
@@ -299,7 +299,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_error(501, "Unsupported method (%r)" % self.command)
 
         else:
-            raise Exception("unhandled content: {}".format(content))
+            # I'm not 100% happy with this approach for for now it will work
+            if self.command == 'PUT':
+                content.handle_put(data)
+                self.send_response(200)
+                self.end_headers()
+
+            elif self.command == 'DELETE':
+                content.handle_delete()
+                self.send_response(200)
+                self.end_headers()
+
+            else:
+                self.send_error(501, "Unsupported method (%r)" % self.command)
 
 
     # Temp removal of support for WebObject and EventStream
