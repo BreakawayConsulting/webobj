@@ -275,7 +275,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
         authorization_header = self.headers.get('Authorization')
-        account = self.server.authenticator.get_account(authorization_header)
+        if self.server.authenticator is not None:
+            account = self.server.authenticator.get_account(authorization_header)
+        else:
+            account = None
 
         if self.command == 'POST':
             try:
