@@ -18,6 +18,13 @@ child_died = False
 got_sigint = False
 killing_child = False
 
+# Python3.2 and earlier doesn't support the InterruptedError
+try:
+    interrupted_exception = InterruptedError
+except NameError:
+    interrupted_exception = ()
+
+
 def sigint_handler(signal, frame):
     global last_ctrl_c, running, got_sigint
     os.write(2, (PREFIX + "<sigint>\n").encode('utf8'))
@@ -74,7 +81,7 @@ def stop():
         try:
             pid, reason = os.waitpid(child_pid, 0)
             break
-        except InterruptedError as e:
+        except interrupted_exception as e:
             pass
     assert pid == child_pid
     if print_reason:
