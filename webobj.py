@@ -116,6 +116,16 @@ class Route(namedtuple('Route', ['route', 'content'])):
         return None
 
 
+class Function:
+    def __init__(self, fn, content_type=None):
+        self.fn = fn
+        self.content_type = content_type
+
+    @property
+    def data(self):
+        return self.fn()
+
+
 class Data:
     def __init__(self, data, content_type=None):
         self.data = data
@@ -287,7 +297,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.do_error(400)
                 return
 
-        if isinstance(content, (Data, File, Jsx, Less)):
+        if isinstance(content, (Data, File, Function, Jsx, Less)):
             if self.command == 'GET':
                 self.send_response(200)
                 if content.content_type is not None:
