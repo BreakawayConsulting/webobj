@@ -5,7 +5,7 @@ import sys
 
 def main():
     module = __import__(sys.argv[1])
-    server = Server(module.routes, module.authenticator)
+    server = Server(module.routes, getattr(module, 'authenticator', None))
     server.start()
 
 script()
