@@ -60,57 +60,18 @@ def first_matching(check, lst):
     return next(filter(check, lst))
 
 
-# class EventStream(threading.Condition):
-#     def __init__(self, web_object):
-#         self.web_object = web_object
-#         lock = threading.Lock()
-#         super().__init__(lock)
-
-
 class NewWebObject:
-    def check_match(self, path):
+    def check_match(self, path, method):
         return None
 
 
-# class WebObject:
-#     web_fields = []
-
-#     def __setattr__(self, name, value):
-#         if name not in self.web_fields:
-#             object.__setattr__(self, name, value)
-#             return
-
-#         self.event_stream.acquire()
-#         object.__setattr__(self, name, value)
-#         self.event_stream.notify_all()
-#         self.event_stream.release()
-
-#     @property
-#     def web_state(self):
-#         return {fld: getattr(self, fld) for fld in self.web_fields}
-
-#     @property
-#     def web_data(self):
-#         return json.dumps(self.web_state).encode('utf8')
-
-#     @property
-#     def event_stream(self):
-#         try:
-#             es = self._event_steam
-#         except AttributeError:
-#             es = EventStream(self)
-#             self._event_steam = es
-
-#         return es
-
-
 class Route(namedtuple('Route', ['route', 'content'])):
-    def matches(self, path):
+    def matches(self, path, method):
         if path == self.route:
             return self.content
         if path.startswith(self.route):
             if hasattr(self.content, 'check_match'):
-                content = self.content.check_match(path[len(self.route):])
+                content = self.content.check_match(path[len(self.route):], method)
                 if content is not None:
                     return content
         return None
@@ -273,13 +234,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
 
     def do_request(self):
-        if self.command == 'POST':
+        if self.command in ('POST', 'PUT'):
             content_length = int(self.headers['Content-Length'])
             data = self.rfile.read(content_length)
 
         parsed_path = parse_path(self.path)
         try:
-            content = first_matching(lambda x: x is not None, (x.matches(parsed_path) for x in self.routes))
+            content = first_matching(lambda x: x is not None, (x.matches(parsed_path, self.command) for x in self.routes))
         except StopIteration:
             self.do_error(404)
             return
@@ -338,7 +299,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_error(501, "Unsupported method (%r)" % self.command)
 
         else:
-            raise Exception("unhandled content: {}".format(content))
+            # I'm not 100% happy with this approach for for now it will work
+            if self.command == 'PUT':
+                content.handle_put(data)
+                self.send_response(200)
+                self.end_headers()
+
+            elif self.command == 'DELETE':
+                content.handle_delete()
+                self.send_response(200)
+                self.end_headers()
+
+            else:
+                self.send_error(501, "Unsupported method (%r)" % self.command)
 
 
     # Temp removal of support for WebObject and EventStream
