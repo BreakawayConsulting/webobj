@@ -314,36 +314,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_error(501, "Unsupported method (%r)" % self.command)
 
 
-    # Temp removal of support for WebObject and EventStream
-    # def do_GET(self):
-    #     elif isinstance(content, WebObject):
-    #         self.send_response(200)
-    #         self.end_headers()
-    #         self.wfile.write(content.web_data)
-    #     elif isinstance(content, EventStream):
-    #         self.send_response(200)
-    #         self.send_header("Content-type", "text/event-stream")
-    #         self.end_headers()
-    #         content.acquire()
-    #         while True:
-    #             json_data = json.dumps(content.web_object.web_state)
-    #             data = 'data: {}\n\n'.format(json_data)
-    #             try:
-    #                 self.wfile.write(data.encode('utf-8'))
-    #                 self.wfile.flush()
-    #             except:
-    #                 content.release()
-    #                 break
-    #             content.wait()
-
-    # Temp removal of support for posting to bare methods
-    # if inspect.ismethod(content):
-    #     result = content(**post_args)
-    #     self.send_response(200)
-    #     self.end_headers()
-    #     self.wfile.write(json.dumps({'result': result}).encode('utf=8'))
-
-
 class Server:
     def __init__(self, routes, authenticator=None, addr=DEFAULT_ADDR):
         self.routes = routes
