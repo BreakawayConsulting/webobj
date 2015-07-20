@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import execjs
 from os.path import abspath, dirname, isfile, join
+
+from . import execjs
 
 
 JS_ROOT = abspath(join(dirname(__file__), 'reactjs'))

@@ -3,10 +3,11 @@
 import signal
 import sys
 import time
-from util import simplecontextmanager
 import termios
 import os
 from copy import copy
+
+from .util import simplecontextmanager
 
 # Lightning bolt
 PREFIX = "\u26A1 "
@@ -57,7 +58,7 @@ def load():
     pid = os.fork()
     if pid == 0:
         env = copy(os.environ)
-        os.execv(sys.executable, ['python3', '-m', 'main'] + sys.argv[1:])
+        os.execv(sys.executable, ['python3', '-m', 'webobj.main'] + sys.argv[1:])
         print(PREFIX + "exec failed.")
         sys.exit()
     else:

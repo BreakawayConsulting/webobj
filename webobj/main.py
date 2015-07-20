@@ -1,8 +1,9 @@
 from argparse import ArgumentParser
-from util import script
-from webobj import Route, Server, File
 import time
 import sys
+
+from .util import script
+from webobj import Route, Server, File
 
 def main():
     parser = ArgumentParser(description='Logcat.')

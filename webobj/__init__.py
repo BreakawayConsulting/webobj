@@ -5,13 +5,14 @@ from collections import namedtuple
 import threading
 import inspect
 import sys
-import jsx
 import socket
-import less
 import time
 import traceback
 import urllib.parse
 import os.path
+
+from . import jsx
+from . import less
 
 
 def parse_path(path):
