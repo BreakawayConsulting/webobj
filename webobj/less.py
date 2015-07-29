@@ -4,7 +4,7 @@ from os.path import abspath, dirname, join
 
 from . import execjs
 
-NODE_PATH = abspath(join(dirname(__file__), 'node_modules'))
+NODE_PATH = abspath(join(dirname(__file__), '..', 'node_modules'))
 
 
 class LessError(Exception):
