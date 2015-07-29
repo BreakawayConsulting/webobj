@@ -10,6 +10,7 @@ import time
 import traceback
 import urllib.parse
 import os.path
+import subprocess
 
 from . import jsx
 from . import less
@@ -150,6 +151,19 @@ class Jsx:
         return "<{} {}>".format(self.__class__.__name__, self.jsx_filename)
 
 
+class Babel:
+    def __init__(self, babel_filename):
+        self.babel_filename = babel_filename
+        self.content_type = 'application/javascript'
+
+    @property
+    def data(self):
+        return subprocess.check_output(["babel", self.babel_filename, "--source-maps-inline"])
+
+    def __repr__(self):
+        return "<{} {}>".format(self.__class__.__name__, self.babel_filename)
+
+
 class Less:
     def __init__(self, less_filename):
         self.less_filename = less_filename
@@ -259,7 +273,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.do_error(400)
                 return
 
-        if isinstance(content, (Data, File, Function, Jsx, Less)):
+        if isinstance(content, (Data, File, Function, Babel, Jsx, Less)):
             if self.command == 'GET':
                 self.send_response(200)
                 if content.content_type is not None:
