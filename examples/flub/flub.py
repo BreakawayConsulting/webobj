@@ -38,7 +38,7 @@ def json_get_example():
 
 def json_post_example(data):
     print("JSON POST:", data)
-    return {'example': 6}
+    return 201, {'example': 6}
 
 
 def json_put_example(data):
@@ -52,7 +52,7 @@ def json_get_regexp_example(id1, id2):
 
 def json_post_regexp_example(id1, id2, data):
     print("JSON POST:", id1, id2, data)
-    return {'example': 6}
+    return 200, {'example': 6}
 
 
 def json_put_regexp_example(id1, id2, data):

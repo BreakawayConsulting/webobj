@@ -337,8 +337,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     fn = content.fn
                 else:
                     fn = functools.partial(content.fn, *extra)
-                result = fn(post_args)
-                self.send_response(200)
+                code, result = fn(post_args)
+                self.send_response(code)
                 self.send_header("Content-type", 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps(result).encode('utf8'))
