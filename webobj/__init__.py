@@ -352,8 +352,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     fn = content.fn
                 else:
                     fn = functools.partial(content.fn, *extra)
-                fn(put_data)
-                self.send_response(201)
+                response = fn(put_data)
+                if response is None:
+                    response = 201
+                self.send_response(response)
                 self.end_headers()
             else:
                 self.send_error(501, "Unsupported method (%r)" % self.command)
