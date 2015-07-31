@@ -89,6 +89,21 @@ class Function:
         return self.fn()
 
 
+_JsonFunction = namedtuple('_JsonFunction', 'fn')
+
+
+class JsonGetFunction(_JsonFunction):
+    pass
+
+
+class JsonPostFunction(_JsonFunction):
+    pass
+
+
+class JsonPutFunction(_JsonFunction):
+    pass
+
+
 class Data:
     def __init__(self, data, content_type=None):
         self.data = data
@@ -280,6 +295,38 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.send_header("Content-type", content.content_type)
                 self.end_headers()
                 self.wfile.write(content.data)
+            else:
+                self.send_error(501, "Unsupported method (%r)" % self.command)
+
+        # I don't particular like the implementation of
+        # Json{Get|Post|Put}Function.  It will almost certainly
+        # required a refactor at some point soon.
+        elif isinstance(content, JsonGetFunction):
+            if self.command == 'GET':
+                self.send_response(200)
+                self.send_header("Content-type", 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(content.fn()).encode('utf8'))
+            else:
+                self.send_error(501, "Unsupported method (%r)" % self.command)
+
+        elif isinstance(content, JsonPostFunction):
+            if self.command == 'POST':
+                result = content.fn(post_args)
+                self.send_response(200)
+                self.send_header("Content-type", 'application/json')
+                self.end_headers()
+
+                self.wfile.write(json.dumps(result).encode('utf8'))
+            else:
+                self.send_error(501, "Unsupported method (%r)" % self.command)
+
+        elif isinstance(content, JsonPutFunction):
+            if self.command == 'PUT':
+                put_data = json.loads(data.decode())
+                content.fn(put_data)
+                self.send_response(201)
+                self.end_headers()
             else:
                 self.send_error(501, "Unsupported method (%r)" % self.command)
 

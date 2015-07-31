@@ -3,7 +3,7 @@
 import os
 import time
 import threading
-from webobj import Server, Route, Data, WebObject, File
+from webobj import Server, Route, Data, NewWebObject, File, JsonPostFunction, JsonGetFunction, JsonPutFunction
 
 BASE_DIR = os.path.dirname(__file__)
 
@@ -11,7 +11,7 @@ def rel_path(*parts):
     return os.path.join(BASE_DIR, *parts)
 
 
-class Flub(WebObject):
+class Flub(NewWebObject):
     web_fields = ['bar']
 
     def __init__(self):
@@ -31,6 +31,19 @@ class Flub(WebObject):
                 self.bar += 1
 
 
+def json_get_example():
+    return {'example': 5}
+
+
+def json_post_example(data):
+    print("JSON POST:", data)
+    return {'example': 6}
+
+
+def json_put_example(data):
+    print("JSON PUT:", data)
+
+
 def main(args):
     flub = Flub()
     flub_thread = threading.Thread(target=flub.run)
@@ -41,9 +54,11 @@ def main(args):
         Route('/flub.js', File(rel_path('flub.js'))),
         Route('/react.js', File(rel_path('react.js'))),
         Route('/flub', flub),
-        Route('/flub+events', flub.event_stream),
         Route('/flub/start', flub.start),
         Route('/flub/stop', flub.stop),
+        Route('/flub/json_get', JsonGetFunction(json_get_example)),
+        Route('/flub/json_post', JsonPostFunction(json_post_example)),
+        Route('/flub/json_put', JsonPutFunction(json_put_example)),
     ]
     server = Server(routes)
     server.start()
