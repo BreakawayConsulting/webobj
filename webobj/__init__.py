@@ -11,6 +11,8 @@ import traceback
 import urllib.parse
 import os.path
 import subprocess
+import functools
+import re
 
 from . import jsx
 from . import less
@@ -70,13 +72,27 @@ class NewWebObject:
 class Route(namedtuple('Route', ['route', 'content'])):
     def matches(self, path, method):
         if path == self.route:
-            return self.content
+            return self.content, None
         if path.startswith(self.route):
             if hasattr(self.content, 'check_match'):
                 content = self.content.check_match(path[len(self.route):], method)
                 if content is not None:
-                    return content
-        return None
+                    return content, None
+        return None, None
+
+
+class RegExpRoute(namedtuple('Route', ['route', 'content'])):
+    def matches(self, path, method):
+        match = re.match(self.route, path)
+        if match is None:
+            return None, None
+
+        if hasattr(self.content, 'check_match'):
+            content = self.content.check_match(path[len(self.route):], method)
+        else:
+            content = self.content
+
+        return content, match.groups()
 
 
 class Function:
@@ -270,7 +286,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         parsed_path = parse_path(self.path)
         try:
-            content = first_matching(lambda x: x is not None, (x.matches(parsed_path, self.command) for x in self.routes))
+            content, extra = first_matching(lambda x: x[0] is not None, (x.matches(parsed_path, self.command) for x in self.routes))
         except StopIteration:
             self.do_error(404)
             return
@@ -306,17 +322,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-type", 'application/json')
                 self.end_headers()
-                self.wfile.write(json.dumps(content.fn()).encode('utf8'))
+                if extra is None:
+                    fn = content.fn
+                else:
+                    fn = functools.partial(content.fn, *extra)
+                data = fn()
+                self.wfile.write(json.dumps(data).encode('utf8'))
             else:
                 self.send_error(501, "Unsupported method (%r)" % self.command)
 
         elif isinstance(content, JsonPostFunction):
             if self.command == 'POST':
-                result = content.fn(post_args)
+                if extra is None:
+                    fn = content.fn
+                else:
+                    fn = functools.partial(content.fn, *extra)
+                result = fn(post_args)
                 self.send_response(200)
                 self.send_header("Content-type", 'application/json')
                 self.end_headers()
-
                 self.wfile.write(json.dumps(result).encode('utf8'))
             else:
                 self.send_error(501, "Unsupported method (%r)" % self.command)
@@ -324,7 +348,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif isinstance(content, JsonPutFunction):
             if self.command == 'PUT':
                 put_data = json.loads(data.decode())
-                content.fn(put_data)
+                if extra is None:
+                    fn = content.fn
+                else:
+                    fn = functools.partial(content.fn, *extra)
+                fn(put_data)
                 self.send_response(201)
                 self.end_headers()
             else:

@@ -3,7 +3,8 @@
 import os
 import time
 import threading
-from webobj import Server, Route, Data, NewWebObject, File, JsonPostFunction, JsonGetFunction, JsonPutFunction
+from webobj import Server, RegExpRoute, Route, Data, NewWebObject, \
+    File, JsonPostFunction, JsonGetFunction, JsonPutFunction
 
 BASE_DIR = os.path.dirname(__file__)
 
@@ -44,6 +45,20 @@ def json_put_example(data):
     print("JSON PUT:", data)
 
 
+def json_get_regexp_example(id1, id2):
+    print("JSON GET:", id1, id2)
+    return {'example': 5}
+
+
+def json_post_regexp_example(id1, id2, data):
+    print("JSON POST:", id1, id2, data)
+    return {'example': 6}
+
+
+def json_put_regexp_example(id1, id2, data):
+    print("JSON PUT:", id1, id2, data)
+
+
 def main(args):
     flub = Flub()
     flub_thread = threading.Thread(target=flub.run)
@@ -59,6 +74,9 @@ def main(args):
         Route('/flub/json_get', JsonGetFunction(json_get_example)),
         Route('/flub/json_post', JsonPostFunction(json_post_example)),
         Route('/flub/json_put', JsonPutFunction(json_put_example)),
+        RegExpRoute(r'/flub/(.*)/(.*)/json_get$', JsonGetFunction(json_get_regexp_example)),
+        RegExpRoute(r'/flub/(.*)/(.*)/json_post$', JsonPostFunction(json_post_regexp_example)),
+        RegExpRoute(r'/flub/(.*)/(.*)/json_put$', JsonPutFunction(json_put_regexp_example)),
     ]
     server = Server(routes)
     server.start()
