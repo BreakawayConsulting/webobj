@@ -18,6 +18,12 @@ from . import jsx
 from . import less
 
 
+class WebobjError(Exception):
+    def __init__(self, status_code, data):
+        self.status_code = status_code
+        self.data = data
+
+
 def static_file_routes(base_dir, prefix=''):
     """Generate routes for all the static files in base_dir."""
     routes = []
@@ -336,14 +342,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # required a refactor at some point soon.
         elif isinstance(content, JsonGetFunction):
             if self.command == 'GET':
-                self.send_response(200)
-                self.send_header("Content-type", 'application/json')
-                self.end_headers()
                 if extra is None:
                     fn = content.fn
                 else:
                     fn = functools.partial(content.fn, *extra)
-                data = fn()
+                try:
+                    data = fn()
+                except WebobjError as e:
+                    self.send_error(e.status_code, e.data)
+                    return
+
+                self.send_response(200)
+                self.send_header("Content-type", 'application/json')
+                self.end_headers()
                 self.wfile.write(json.dumps(data).encode('utf8'))
             else:
                 self.send_error(501, "Unsupported method (%r)" % self.command)
