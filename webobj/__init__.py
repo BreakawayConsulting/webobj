@@ -32,6 +32,10 @@ def static_file_routes(base_dir, prefix=''):
 
 
 def parse_path(path):
+    """Remove any '..' from the path."""
+    split_path = urllib.parse.urlparse(path)
+    path = split_path.path
+    query = split_path.query
     unquoted = urllib.parse.unquote(path)
     parts = [x for x in unquoted.split('/') if x != '']
     new = []
@@ -43,7 +47,7 @@ def parse_path(path):
                 raise Exception()
         else:
             new.append(p)
-    return '/' + '/'.join(new)
+    return '/' + '/'.join(new), query
 
 
 # Arbitrarily use 2KiB as max request line size.
@@ -297,7 +301,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             content_length = int(self.headers['Content-Length'])
             data = self.rfile.read(content_length)
 
-        parsed_path = parse_path(self.path)
+        parsed_path, query = parse_path(self.path)
         try:
             content, extra = first_matching(lambda x: x[0] is not None, (x.matches(parsed_path, self.command) for x in self.routes))
         except StopIteration:
