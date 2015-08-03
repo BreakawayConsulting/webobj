@@ -18,6 +18,19 @@ from . import jsx
 from . import less
 
 
+def static_file_routes(base_dir, prefix=''):
+    """Generate routes for all the static files in base_dir."""
+    routes = []
+    for root, _, files in os.walk(base_dir):
+        for f in files:
+            if f.startswith('.'):
+                continue
+            full_path = os.path.join(root, f)
+            url_path = prefix + full_path[len(base_dir):]
+            routes.append(Route(url_path, File(full_path)))
+    return routes
+
+
 def parse_path(path):
     unquoted = urllib.parse.unquote(path)
     parts = [x for x in unquoted.split('/') if x != '']
